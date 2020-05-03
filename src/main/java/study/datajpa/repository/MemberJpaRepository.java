@@ -5,6 +5,8 @@ import study.datajpa.entity.Member;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class MemberJpaRepository {
@@ -18,7 +20,29 @@ public class MemberJpaRepository {
         return member;
     }
 
+    public void delete(Member member) {
+        em.remove(member);
+    }
+
+    public List<Member> findAll() {
+        return em.createQuery("select m from Member m", Member.class)
+                .getResultList();
+    }
+
     public Member find(Long id) {
         return em.find(Member.class, id);
     }
+
+    // 예전 jpa 에서는 findOne 이었지만, 최신에는 findById 이렇게 바뀜
+    public Optional<Member> findById(Long id) {
+        Member member = em.find(Member.class, id);  // member가 Null일 수도 아닐 수도 있기에 Optional type으로!!
+        return Optional.ofNullable(member);
+    }
+
+    public long count() {  // count 함수의 반환타입이 long 이므로
+        return em.createQuery("select count(m) from Member m", Long.class)
+                .getSingleResult();  // 단건조회
+    }
+
+
 }
