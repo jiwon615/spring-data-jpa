@@ -139,4 +139,27 @@ class MemberRepositoryTest {
         }
 
     }
+
+    /**
+     * 쿼리 반환타입 test
+     */
+    @Test
+    public void returnType() {
+        Member member1 = new Member("AAA", 20);
+        Member member2 = new Member("BBB", 10);
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        // 1. 컬렉션
+//        List<Member> findMember = memberRepository.findListByUsername("AAA");
+//        System.out.println("findMember: " + findMember.size());
+
+        // 2. 단건
+//        Member findMember2 = memberRepository.findMemberByUsername("AAA");
+//        System.out.println("findMember2: " + findMember2);
+
+        // 3. 단건 optional
+        Optional<Member> findMember3 = memberRepository.findOptionalByUsername("AAA");
+        System.out.println("findMember3: " + findMember3.get());
+    }
 }
