@@ -4,6 +4,9 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
@@ -161,5 +164,37 @@ class MemberRepositoryTest {
         // 3. 단건 optional
         Optional<Member> findMember3 = memberRepository.findOptionalByUsername("AAA");
         System.out.println("findMember3: " + findMember3.get());
+    }
+
+    @Test
+    public void paging() throws Exception {
+        //given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        int age = 10;
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
+
+        // when
+        // Page가 알아서 totalCount는 가져오니 매우 편리함
+        Page<Member> page = memberRepository.findByAge(age, pageRequest);
+
+//        for (Member member : content) {
+//            System.out.println("member: " + member);
+//        }
+//        System.out.println("totalElements" + totalElements);
+
+        //then
+        List<Member> content = page.getContent(); //조회된 데이터
+
+        assertThat(content.size()).isEqualTo(3); //조회된 데이터 수
+        assertThat(page.getTotalElements()).isEqualTo(5); //전체 데이터 수   (Slice 에는 없는 기능)
+        assertThat(page.getNumber()).isEqualTo(0); //페이지 번호
+        assertThat(page.getTotalPages()).isEqualTo(2); //전체 페이지 번호     (Slice 에는 없는 기능)
+        assertThat(page.isFirst()).isTrue(); //첫번째 항목인가?
+        assertThat(page.hasNext()).isTrue(); //다음 페이지가 있는가?
     }
 }
