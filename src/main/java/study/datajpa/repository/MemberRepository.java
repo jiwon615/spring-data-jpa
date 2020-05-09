@@ -2,17 +2,19 @@ package study.datajpa.repository;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 
+import javax.persistence.Lob;
+import javax.persistence.LockModeType;
+import javax.persistence.QueryHint;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-public interface MemberRepository extends JpaRepository<Member, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom {
 
     /**
      * 메소드 이름으로 쿼리 생성
@@ -43,12 +45,50 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
      * 여러가지 쿼리 반환타입
      * (메소드 명 아무렇게나 지으면 됨 --> find...By  )
      */
-    List<Member> findListByUsername(String username); // 컬렉션
+    List<Member> findByUsername(String username); // 컬렉션
     Member findMemberByUsername(String username); // 단건
     Optional<Member> findOptionalByUsername(String username); // 단건 optional
 
     /** 페이징 처리
      *
      */
-    Page<Member> findByAge(int age, Pageable pageable);
+    Page<Member> findByAge(int age, Pageable pageable);  // 반환타입을 Page, Slice, List 중 적절히 선택해서 쓰자
+
+    /**
+     * 벌크성 쿼리
+     *
+     */
+    @Modifying(clearAutomatically = true)// .executeUpdate(); 를 실행해주는 어노테이션이므로 꼭 넣어주어야 함
+    @Query("update Member m set m.age = m.age + 1 where m.age >= :age")
+    int bulkAgePlus(@Param("age") int age);
+
+    /** 1. 패치조인
+     * 패치조인 사용해서 Member객체 select해올 때 Team객체 내용도 한번에 가져오도록 하는 방법
+     *
+     */
+    @Query("select m from Member m left join fetch m.team")
+    List<Member> findMemberFetchJoin();
+
+    /**
+     * 2. Enityty Graph  (원랜 fetch join해야 Team객체까지 join했지만, 이 방식으로 훨씬 간단하게 할 수 있음)
+     *
+     * @return
+     */
+    @Override
+    @EntityGraph(attributePaths = "team")
+    List<Member> findAll();
+
+    /**
+     * JPA SQL Hint
+     *
+     */
+    @QueryHints(value = @QueryHint(name = "org.hibernate.readOnly", value = "true"))
+    Member findReadOnlyByUsername(String username);
+
+    /**
+     * JPA lock
+     *
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Member> findLockByUsername(String username);
 }

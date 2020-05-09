@@ -13,6 +13,8 @@ import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 import study.datajpa.entity.Team;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +29,8 @@ class MemberRepositoryTest {
 
     @Autowired MemberRepository memberRepository;
     @Autowired TeamRepository teamRepository;
+    @PersistenceContext
+    EntityManager em;
 
     @Test
     public void testMember() {
@@ -179,16 +183,19 @@ class MemberRepositoryTest {
         PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
 
         // when
-        // Page가 알아서 totalCount는 가져오니 매우 편리함
+        // Page가 알아서 totalCount는 가져오니 매우 편리함 (반환타입: Page, Slice, List 중 알맞게 선택해서 쓰자)
         Page<Member> page = memberRepository.findByAge(age, pageRequest);
 
-//        for (Member member : content) {
+        // Member를 그대로 반환하면 안되고, 아래처럼 DTO로 변환하여 반환할 것
+        Page<MemberDto> toMap = page.map(m -> new MemberDto(m.getId(), m.getUsername(), null));
+
+        //        for (Member member : content) {
 //            System.out.println("member: " + member);
 //        }
 //        System.out.println("totalElements" + totalElements);
 
         //then
-        List<Member> content = page.getContent(); //조회된 데이터
+        List<Member> content = page.getContent(); // 내용 꺼내오기
 
         assertThat(content.size()).isEqualTo(3); //조회된 데이터 수
         assertThat(page.getTotalElements()).isEqualTo(5); //전체 데이터 수   (Slice 에는 없는 기능)
@@ -196,5 +203,98 @@ class MemberRepositoryTest {
         assertThat(page.getTotalPages()).isEqualTo(2); //전체 페이지 번호     (Slice 에는 없는 기능)
         assertThat(page.isFirst()).isTrue(); //첫번째 항목인가?
         assertThat(page.hasNext()).isTrue(); //다음 페이지가 있는가?
+    }
+
+    @Test
+    public void bulkUpdate() {
+        // given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 20));
+        memberRepository.save(new Member("member4", 21));
+        memberRepository.save(new Member("member5", 40));
+
+        // when
+        int resultCount = memberRepository.bulkAgePlus(20);
+//        em.flush();  // 벌크성 쿼리 나린 뒤엔 가급적 em.flush와 em.clear 해줄 것
+//        em.clear();
+
+
+        List<Member> result = memberRepository.findByUsername("member5");
+        Member member5 = result.get(0);
+        System.out.println("member5 : " + member5);
+
+        // then
+        assertThat(resultCount).isEqualTo(3);
+    }
+
+
+    @Test
+    public void findMemberLazy() {
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member2", 10, teamB);
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        em.flush();
+        em.clear();
+
+        // when
+        List<Member> members = memberRepository.findAll(); // @EntityGraph 사용한 방식
+      //  List<Member> members = memberRepository.findMemberFetchJoin();  // 패치조인
+
+        for (Member member : members) {
+            System.out.println("member: " + member.getUsername());  // member1
+            System.out.println("member.teamClass: " + member.getTeam().getClass());  // fetch join도 EntityGraph도 없을 땐 가짜객체(HibernagPorxy)로 가져오겠지만, 이제는 진짜 객체이름이 잘 나옴
+            System.out.println("member.team: " + member.getTeam().getName()); // teamA
+        }
+    }
+
+    /**
+     * JPA Query Hint
+     *
+     */
+    @Test
+    public void queryHint() {
+        // given
+        memberRepository.save(new Member("member1", 10));
+        em.flush();
+        em.clear();
+
+        // when
+        Member findMember = memberRepository.findReadOnlyByUsername("member1");
+        findMember.setUsername("member2");
+
+        em.flush();
+    }
+
+    /**
+     * JPA Lock
+     *
+     */
+    @Test
+    public void lock() {
+        // given
+        memberRepository.save(new Member("member1", 10));
+        em.flush();
+        em.clear();
+
+        // when
+        List<Member> result = memberRepository.findLockByUsername("member1");
+    }
+
+    /**
+     * 사용자 정의 인터페이스 속 메소드 호출
+     *
+     */
+    @Test
+    public void callCustom() {
+        List<Member> result = memberRepository.findMemberCustom();
+
     }
 }
